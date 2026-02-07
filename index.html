@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Poll</title>
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 2rem; background: #f4f7f6; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: inline-block; min-width: 300px; }
+        button { background: #007bff; color: white; border: none; padding: 1rem 2rem; margin: 10px; border-radius: 5px; cursor: pointer; font-size: 1.1rem; }
+        button:hover { background: #0056b3; }
+        #presenter-view { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="audience-view" class="card">
+        <h2>What's your favorite coding language?</h2>
+        <button onclick="vote('JavaScript')">JavaScript</button>
+        <button onclick="vote('Python')">Python</button>
+        <button onclick="vote('Rust')">Rust</button>
+    </div>
+
+    <div id="presenter-view" class="card">
+        <h2>Live Results</h2>
+        <canvas id="resultsChart"></canvas>
+    </div>
+
+    <script>
+        // REPLACE WITH YOUR ABLY API KEY
+        const ably = new Ably.Realtime('cokZSw.S1huKQ:BYb0rosFkPloAr78dHeXbwY9z9gyR7-VMmO1kM4AwSk');
+        const channel = ably.channels.get('voting-demo');
+        
+        const votes = { 'JavaScript': 0, 'Python': 0, 'Rust': 0 };
+
+        // Logic to switch views based on URL
+        if(window.location.hash === '#presenter') {
+            document.getElementById('audience-view').style.display = 'none';
+            document.getElementById('presenter-view').style.display = 'block';
+            setupChart();
+        }
+
+        // Send vote to the cloud
+        function vote(option) {
+            channel.publish('vote', option);
+            document.getElementById('audience-view').innerHTML = "<h3>Thanks for voting!</h3>";
+        }
+
+        // Receive vote and update chart
+        let chart;
+        function setupChart() {
+            const ctx = document.getElementById('resultsChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(votes),
+                    datasets: [{ label: '# of Votes', data: Object.values(votes), backgroundColor: '#007bff' }]
+                }
+            });
+
+            channel.subscribe('vote', (msg) => {
+                votes[msg.data]++;
+                chart.data.datasets[0].data = Object.values(votes);
+                chart.update();
+            });
+        }
+    </script>
+</body>
+</html>
